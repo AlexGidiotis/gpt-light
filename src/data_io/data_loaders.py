@@ -1,6 +1,7 @@
 import os
 import pickle
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 import tiktoken
@@ -9,6 +10,15 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class DataConfig:
+    dataset: str = 'openwebtext'
+    batch_size: int = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
+    block_size: int = 1024
+    device: str = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
+    device_type: str = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
+    
 
 class DataLoader:
     def __init__(self, config):
@@ -31,12 +41,12 @@ class DataLoader:
     def get_batch(self, split):
         data = self.train_data if split == 'train' else self.val_data
         ix = torch.randint(len(data) - self.config.block_size, (self.config.batch_size,))
-        x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-        y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+        x = torch.stack([torch.from_numpy((data[i:i+self.config.block_size]).astype(np.int64)) for i in ix])
+        y = torch.stack([torch.from_numpy((data[i+1:i+1+self.config.block_size]).astype(np.int64)) for i in ix])
         if self.config.device_type == 'cuda':
             # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
             x, y = x.pin_memory().to(self.config.device, non_blocking=True), y.pin_memory().to(self.config.device, non_blocking=True)
         else:
-            x, y = x.to(device), y.to(self.config.device)
+            x, y = x.to(self.config.device), y.to(self.config.device)
 
         return x, y

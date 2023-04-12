@@ -50,12 +50,15 @@ class JobConfig:
     min_lr: float = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
     # DDP settings
     backend: str = 'nccl' # 'nccl', 'gloo', etc.
+    ddp: bool = False
+    ddp_local_rank: int = -1
     # system
+    master_process: bool = True
     device: str = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
     device_type: str = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
     dtype: str = 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
     compile_model: bool = True # use PyTorch 2.0 to compile the model to be faster
-
+    
 
 def override_config(config_file=None):
     loaded_configs = {}
