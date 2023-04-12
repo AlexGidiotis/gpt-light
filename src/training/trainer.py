@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 import math
@@ -12,21 +13,20 @@ logger = logging.getLogger(__name__)
 
 
 class GPTTrainer:
-    def __init__(self, job_config, model_config, model, checkpoint=None):
+    def __init__(self, job_config, model_config, checkpoint=None):
         self.job_config = job_config
         self.model_config = model_config
-        self.model = model
         self.checkpoint = checkpoint
         self.scaler = None
         self.optimizer = None
         self.unoptimized_model = None
     
-    def init_trainer(self):
+    def init_trainer(self, model):
         # initialize a GradScaler. If enabled=False scaler is a no-op
         self.scaler = torch.cuda.amp.GradScaler(enabled=(self.job_config.dtype == 'float16'))
 
         # optimizer
-        self.optimizer = self.model.configure_optimizers(
+        self.optimizer = model.configure_optimizers(
             self.job_config.weight_decay,
             self.job_config.learning_rate,
             (self.job_config.beta1, self.job_config.beta2),
@@ -38,33 +38,33 @@ class GPTTrainer:
         # compile the model
         if self.job_config.compile_model:
             logger.info("compiling the model... (takes a ~minute)")
-            self.unoptimized_model = self.model
-            self.model = torch.compile(self.model) # requires PyTorch 2.0
+            self.unoptimized_model = model
+            model = torch.compile(model) # requires PyTorch 2.0
 
         # wrap model into DDP container
         if self.job_config.ddp:
-            self.model = DDP(self.model, device_ids=[self.job_config.ddp_local_rank])
+            model = DDP(model, device_ids=[self.job_config.ddp_local_rank])
 
         # logging
         if self.job_config.wandb_log and self.job_config.master_process:
             import wandb
             wandb.init(project=self.job_config.wandb_project, name=self.job_config.wandb_run_name, config=asdict(self.job_config))
         
-    def training_loop(self, data_loader, context, iter_num, best_val_loss):
+    def training_loop(self, data_loader, model, context, iter_num, best_val_loss):
         # helps estimate an arbitrarily accurate loss over either split using many batches
         @torch.no_grad()
         def estimate_loss():
             out = {}
-            self.model.eval()
+            model.eval()
             for split in ['train', 'val']:
                 losses = torch.zeros(self.job_config.eval_iters)
                 for k in range(self.job_config.eval_iters):
                     X, Y = data_loader.get_batch(split)
                     with context:
-                        logits, loss = self.model(X, Y)
+                        logits, loss = model(X, Y)
                     losses[k] = loss.item()
                 out[split] = losses.mean()
-            self.model.train()
+            model.train()
             return out
 
         # learning rate decay scheduler (cosine with warmup)
@@ -85,7 +85,7 @@ class GPTTrainer:
         X, Y = data_loader.get_batch('train') # fetch the very first batch
         t0 = time.time()
         local_iter_num = 0 # number of iterations in the lifetime of this process
-        raw_model = self.model.module if self.job_config.ddp else self.model # unwrap DDP container if needed
+        raw_model = model.module if self.job_config.ddp else model # unwrap DDP container if needed
         running_mfu = -1.0
         while True:
             # determine and set the learning rate for this iteration
@@ -97,7 +97,7 @@ class GPTTrainer:
             if iter_num % self.job_config.eval_interval == 0 and self.job_config.master_process:
                 losses = estimate_loss()
                 logger.info(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-                if wandb_log:
+                if self.job_config.wandb_log:
                     self.job_config.wandb.log({
                         "iter": iter_num,
                         "train/loss": losses['train'],
@@ -129,9 +129,9 @@ class GPTTrainer:
                     # the official way to do this is with model.no_sync() context manager, but
                     # I really dislike that this bloats the code and forces us to repeat code
                     # looking at the source of that context manager, it just toggles this variable
-                    self.model.require_backward_grad_sync = (micro_step == self.job_config.gradient_accumulation_steps - 1)
+                    model.require_backward_grad_sync = (micro_step == self.job_config.gradient_accumulation_steps - 1)
                 with context:
-                    logits, loss = self.model(X, Y)
+                    logits, loss = model(X, Y)
                 # immediately async prefetch next batch while model is doing the forward pass on the GPU
                 X, Y = data_loader.get_batch('train')
                 # backward pass, with gradient scaling if training in fp16
@@ -139,7 +139,7 @@ class GPTTrainer:
             # clip the gradient
             if self.job_config.grad_clip != 0.0:
                 self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.job_config.grad_clip)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), self.job_config.grad_clip)
             # step the optimizer and scaler if training in fp16
             self.scaler.step(self.optimizer)
             self.scaler.update()

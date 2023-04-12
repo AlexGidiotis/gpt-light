@@ -154,10 +154,11 @@ def main():
         configs.model_config.block_size = configs.job_config.block_size # so that the checkpoint will have the right value
     model.to(configs.job_config.device)
 
-    trainer = GPTTrainer(configs.job_config, configs.model_config, model, checkpoint)
-    trainer.init_trainer()
+    trainer = GPTTrainer(configs.job_config, configs.model_config, checkpoint)
+    trainer.init_trainer(model)
     trainer.training_loop(
         data_loader=data_loader,
+        model=model,
         context=configs.context,
         iter_num=iter_num,
         best_val_loss=best_val_loss,

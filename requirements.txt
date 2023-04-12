@@ -1,3 +1,5 @@
 transformers
 tiktoken
 yaml
+wandb
+tqdm
