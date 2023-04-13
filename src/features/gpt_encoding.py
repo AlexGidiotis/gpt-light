@@ -15,12 +15,18 @@ class DataEncoder:
         self.enc = tiktoken.get_encoding("gpt2")
         return
       
-    def encode(self, s):
-        ids = self.enc.encode_ordinary(s) # encode_ordinary ignores any special tokens
-        ids.append(self.enc.eot_token) # add the end of text token, e.g. 50256 for gpt2 bpe
-        # note: I think eot should be prepended not appended... hmm. it's called "eot" though...
-        out = {'ids': ids, 'len': len(ids)}
+    def encode(self, s, train=True):
+        if train:  # training preprocessing
+            ids = self.enc.encode_ordinary(s) # encode_ordinary ignores any special tokens
+            ids.append(self.enc.eot_token) # add the end of text token, e.g. 50256 for gpt2 bpe
+            # note: I think eot should be prepended not appended... hmm. it's called "eot" though...
+            out = {'ids': ids, 'len': len(ids)}
+        else:  # inference
+            out = self.enc.encode(s, allowed_special={"<|endoftext|>"})
         return out
+    
+    def decode(self, s):
+        return self.enc.decode(s)
 
     @staticmethod
     def create_splits(data):

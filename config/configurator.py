@@ -60,13 +60,33 @@ class JobConfig:
     compile_model: bool = True # use PyTorch 2.0 to compile the model to be faster
     
 
-def override_config(config_file=None):
+@dataclass
+class InferenceJobConfig:
+    """default config values designed to sample from a gpt2"""
+    out_dir: str = 'out'
+    start: str = "\n"
+    init_from: str = 'resume' # 'resume' or 'gpt2*'
+    num_samples: int = 10
+    max_new_tokens: int = 500 # number of tokens generated in each sample
+    temperature: float = 0.8 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
+    top_k: int = 200 # retain only the top_k most likely tokens, clamp others to have 0 probability
+    seed: int = 1337
+    device: str = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
+    device_type: str = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
+    dtype: str = 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
+    compile_model: bool = True # use PyTorch 2.0 to compile the model to be faster
+    
+
+def override_config(config_file=None, inference=False):
     loaded_configs = {}
     if config_file:
         logger.info(f"Overriding config with {config_file}:")
         with open(config_file, "r") as stream:
             loaded_configs = yaml.safe_load(stream)
-
-    job_config = JobConfig(**loaded_configs)
+    
+    if inference:
+        job_config = InferenceJobConfig(**loaded_configs)
+    else:
+        job_config = JobConfig(**loaded_configs)
     
     return job_config

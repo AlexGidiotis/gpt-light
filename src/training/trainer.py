@@ -33,7 +33,7 @@ class GPTTrainer:
             self.job_config.device_type
         )
         if self.job_config.init_from == 'resume':
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.optimizer.load_state_dict(self.checkpoint['optimizer'])
 
         # compile the model
         if self.job_config.compile_model:

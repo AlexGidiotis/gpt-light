@@ -41,7 +41,7 @@ class LayerNorm(nn.Module):
 
     
 class CausalSelfAttention(nn.Module):
-
+    """"""
     def __init__(self, config):
         super().__init__()
         assert config.n_embd % config.n_head == 0
@@ -91,7 +91,7 @@ class CausalSelfAttention(nn.Module):
 
     
 class MLP(nn.Module):
-
+    """"""
     def __init__(self, config):
         super().__init__()
         self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias)
@@ -107,7 +107,7 @@ class MLP(nn.Module):
 
     
 class Block(nn.Module):
-
+    """"""
     def __init__(self, config):
         super().__init__()
         self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
@@ -133,7 +133,7 @@ class GPTConfig:
 
     
 class GPT(nn.Module):
-
+    """"""
     def __init__(self, config):
         super().__init__()
         assert config.vocab_size is not None
