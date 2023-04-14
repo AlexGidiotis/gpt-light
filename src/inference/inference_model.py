@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceModel:
+    """This class can be used to call a GPT model for inference"""
     def __init__(self, configs):
         self.job_config = configs.job_config
         self.context = configs.context

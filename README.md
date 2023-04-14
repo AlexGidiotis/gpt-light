@@ -32,3 +32,13 @@ python src/training/train_main.py --config_file config/finetune_shakespeare.yml
 ```
 python src/inference/sample_main.py --config_file config/sample_shakespeare.yml
 ```
+
+### Start server
+```
+uvicorn src.inference.service_main:app --reload
+```
+
+#### Test endpoint
+```
+python src/inference/test_query.py
+```
