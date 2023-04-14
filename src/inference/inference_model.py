@@ -22,35 +22,42 @@ class InferenceModel:
         self.context = configs.context
         self.encode_fn = None
         self.decode_fn = None
+        self.model = None
     
-    def init_inference(self, checkpoint=None):        
+    def init_inference(self, model, checkpoint=None):        
         # ok let's assume gpt-2 encodings by default
         logger.info("No meta.pkl found, assuming GPT-2 encodings...")
         data_encoder = DataEncoder()
         self.encode_fn = lambda s: data_encoder.encode(s, train=False)
         self.decode_fn = lambda l: data_encoder.decode(l)
-            
-    def generate_samples(self, model, num_samples):
-        model.eval()
-        model.to(self.job_config.device)
-        if self.job_config.compile_model:
-            model = torch.compile(model) # requires PyTorch 2.0 (optional)
         
+        self.model = model
+        self.model.eval()
+        self.model.to(self.job_config.device)
+        if self.job_config.compile_model:
+            self.model = torch.compile(self.model) # requires PyTorch 2.0 (optional)
+        
+    def generate_sample(self, s):
+        s_ids = self.encode_fn(s)
+        x = (torch.tensor(s_ids, dtype=torch.long, device=self.job_config.device)[None, ...])
+        with torch.no_grad():
+            with self.context:
+                y = self.model.generate(
+                    x,
+                    self.job_config.max_new_tokens,
+                    temperature=self.job_config.temperature,
+                    top_k=self.job_config.top_k
+                )
+        
+        return self.decode_fn(y[0].tolist())
+            
+    def generate_samples(self, num_samples):
         start = self.job_config.start
         # encode the beginning of the prompt
         if start.startswith('FILE:'):
             with open(start[5:], 'r', encoding='utf-8') as f:
                 start = f.read()
-        start_ids = self.encode_fn(start)
-        x = (torch.tensor(start_ids, dtype=torch.long, device=self.job_config.device)[None, ...])
-
         # run generation
-        with torch.no_grad():
-            with self.context:
-                for k in range(num_samples):
-                    y = model.generate(
-                        x,
-                        self.job_config.max_new_tokens,
-                        temperature=self.job_config.temperature,
-                        top_k=self.job_config.top_k)
-                    logger.info(f"{self.decode_fn(y[0].tolist())}\n---------------")
+        for k in range(num_samples):
+            y = self.generate_sample(start)
+            logger.info(f"{y}\n---------------")

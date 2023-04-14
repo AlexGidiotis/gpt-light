@@ -49,8 +49,8 @@ def main():
     configs = model_init.configs  # some configs might have been changed when loading a model
     
     inference_model = InferenceModel(configs)
-    inference_model.init_inference(initialised.checkpoint)
-    inference_model.generate_samples(initialised.model, configs.job_config.num_samples)
+    inference_model.init_inference(initialised.model, initialised.checkpoint)
+    inference_model.generate_samples(configs.job_config.num_samples)
 
 
 if __name__ == "__main__":
