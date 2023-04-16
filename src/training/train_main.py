@@ -32,10 +32,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from src.model.gpt_model import GPTConfig, GPT
-from src.model.model_init import TrainModelInitialiser
-from src.training.trainer import GPTTrainer
+from src.training.trainer import GPTTrainer, TrainModelInitialiser
 from src.data_io.data_loaders import DataLoader, DataConfig
-from config.configurator import override_config
+from src.config.configurator import override_config
 
 
 logging.basicConfig(level=logging.DEBUG)

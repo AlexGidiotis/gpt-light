@@ -10,9 +10,8 @@ from contextlib import nullcontext
 import torch
 import tiktoken
 
-from config.configurator import override_config
-from src.model.model_init import InferenceModelInitialiser
-from src.inference.inference_model import InferenceModel
+from src.config.configurator import override_config
+from src.inference.inference_model import InferenceModel, InferenceModelInitialiser
 
 
 logging.basicConfig(level=logging.DEBUG)

@@ -7,26 +7,11 @@ import logging
 import numpy as np
 
 from src.features.gpt_encoding import DataEncoder
+from src.data_io.data_fetchers import fetch_txt_data
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def fetch_data():
-    """download the tiny shakespeare dataset"""
-    input_file_path = os.path.join(os.path.dirname(__file__), 'input.txt')
-    if not os.path.exists(input_file_path):
-        data_url = 'https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt'
-        with open(input_file_path, 'w') as f:
-            f.write(requests.get(data_url).text)
-
-    with open(input_file_path, 'r') as f:
-        data = f.read()
-    
-    logger.info(f"length of dataset in characters: {len(data):,}")
-    
-    return data
 
 
 def main():
@@ -38,7 +23,10 @@ def main():
     train has 1003854 tokens
     val has 111540 tokens
     """
-    data = fetch_data()
+    data = fetch_txt_data(
+        data_url="https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
+        output_dir_path="data/tinyshakespeare",
+    )
     data_builder = DataEncoder()
     train_data, val_data = data_builder.create_splits(data)
     
@@ -52,9 +40,9 @@ def main():
     logger.info(f"train has {num_train_ids} tokens")
     logger.info(f"val has {num_val_ids} tokens")
     
-    data_builder.save_data(train_ids, dir_path=os.path.dirname(__file__), fname="train")
-    data_builder.save_data(val_ids, dir_path=os.path.dirname(__file__), fname="val")
-    data_builder.save_metadata(dir_path=os.path.dirname(__file__))
+    data_builder.save_data(train_ids, dir_path="data/tinyshakespeare", fname="train")
+    data_builder.save_data(val_ids, dir_path="data/tinyshakespeare", fname="val")
+    data_builder.save_metadata(dir_path="data/tinyshakespeare")
 
 
 if __name__ == "__main__":

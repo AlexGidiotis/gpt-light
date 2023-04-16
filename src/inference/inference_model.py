@@ -4,16 +4,34 @@ import logging
 import pickle
 from collections import namedtuple
 from contextlib import nullcontext
+from dataclasses import dataclass
+
 import torch
 import tiktoken
 
-from config.configurator import override_config
-from src.model.model_init import InferenceModelInitialiser
+from src.model.model_init import ModelInitialiser
 from src.model.gpt_model import GPTConfig, GPT
 from src.features.gpt_encoding import DataEncoder
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class InferenceJobConfig:
+    """default config values designed to sample from a gpt2"""
+    out_dir: str = 'out'
+    start: str = "\n"
+    init_from: str = 'resume' # 'resume' or 'gpt2*'
+    num_samples: int = 10
+    max_new_tokens: int = 500 # number of tokens generated in each sample
+    temperature: float = 0.8 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
+    top_k: int = 200 # retain only the top_k most likely tokens, clamp others to have 0 probability
+    seed: int = 1337
+    device: str = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
+    device_type: str = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
+    dtype: str = 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
+    compile_model: bool = True # use PyTorch 2.0 to compile the model to be faster
 
 
 class InferenceModel:
@@ -62,3 +80,20 @@ class InferenceModel:
         for k in range(num_samples):
             y = self.generate_sample(start)
             logger.info(f"{y}\n---------------")
+            
+
+class InferenceModelInitialiser(ModelInitialiser):
+    def __init__(self, configs, **kwargs):
+        super(InferenceModelInitialiser, self).__init__(configs, **kwargs)
+
+    def init_model(self):
+        InitialisedModel = namedtuple('InitialisedModel', 'model checkpoint')
+        # model
+        if self.configs.job_config.init_from == 'resume':
+            # init from a model saved in a specific directory
+            model, checkpoint = self.init_resume(training_args=False)
+        elif self.configs.job_config.init_from.startswith('gpt2'):
+            # init from a given GPT-2 model
+            model = GPT.from_pretrained(self.configs.job_config.init_from, dict(dropout=0.0))
+            
+        return InitialisedModel(model, checkpoint)

@@ -15,7 +15,7 @@ conda install --file requirements.txt
 ## Running things
 ### Preparing tiny-shakespeare data
 ```
-python data/tinyshakespeare/fetch_shakespeare.py
+python src/data_io/fetch_shakespeare.py
 ```
 
 ### Training tiny-shakespeare

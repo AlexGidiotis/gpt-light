@@ -5,9 +5,8 @@ from collections import namedtuple
 from contextlib import nullcontext
 import torch
 
-from config.configurator import override_config
-from src.model.model_init import InferenceModelInitialiser
-from src.inference.inference_model import InferenceModel
+from src.config.configurator import override_config
+from src.inference.inference_model import InferenceModel, InferenceModelInitialiser
 
 
 logger = logging.getLogger(__name__)
