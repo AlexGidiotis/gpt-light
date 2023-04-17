@@ -21,9 +21,11 @@ class DataConfig:
     
 
 class DataLoader:
-    def __init__(self, config):
+    def __init__(self, config, path=None):
         self.config = config
         self.data_dir = os.path.join('data', self.config.dataset)
+        if path:
+            self.data_dir = os.path.join(path, self.data_dir)
         self.train_data = np.memmap(os.path.join(self.data_dir, 'train.bin'), dtype=np.uint16, mode='r')
         self.val_data = np.memmap(os.path.join(self.data_dir, 'val.bin'), dtype=np.uint16, mode='r')
         self.load_metadata()
@@ -36,7 +38,7 @@ class DataLoader:
             with open(meta_path, 'rb') as f:
                 meta = pickle.load(f)
             self.meta_vocab_size = meta['vocab_size']
-            print(f"found vocab_size = {self.meta_vocab_size} (inside {meta_path})")
+            logger.info(f"found vocab_size = {self.meta_vocab_size} (inside {meta_path})")
 
     def get_batch(self, split):
         data = self.train_data if split == 'train' else self.val_data

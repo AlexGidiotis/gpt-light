@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 class DataEncoder:
     def __init__(self):
         self.enc = tiktoken.get_encoding("gpt2")
-        return
-      
+
     def encode(self, s, train=True):
         if train:  # training preprocessing
             ids = self.enc.encode_ordinary(s) # encode_ordinary ignores any special tokens

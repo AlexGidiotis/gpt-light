@@ -3,6 +3,7 @@ tiktoken
 yaml
 wandb
 tqdm
+pytest
 # backend server
 fastapi
 "uvicorn[standard]"
