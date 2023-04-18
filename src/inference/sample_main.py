@@ -49,7 +49,9 @@ def main():
     
     inference_model = InferenceModel(configs)
     inference_model.init_inference(initialised.model, initialised.checkpoint)
-    inference_model.generate_samples(configs.job_config.num_samples)
+    out = inference_model.generate_samples(configs.job_config.num_samples)
+    for y in out:
+        logger.info(f"{y}\n---------------")
 
 
 if __name__ == "__main__":

@@ -77,9 +77,12 @@ class InferenceModel:
             with open(start[5:], 'r', encoding='utf-8') as f:
                 start = f.read()
         # run generation
+        out = []
         for k in range(num_samples):
             y = self.generate_sample(start)
-            logger.info(f"{y}\n---------------")
+            out.append(y)
+            
+        return out
             
 
 class InferenceModelInitialiser(ModelInitialiser):

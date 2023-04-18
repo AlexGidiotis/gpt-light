@@ -42,3 +42,8 @@ uvicorn src.inference.service_main:app --reload
 ```
 python src/inference/test_query.py
 ```
+
+### Run unit tests
+```
+pytest test/
+```
