@@ -47,3 +47,9 @@ python src/inference/test_query.py
 ```
 pytest test/
 ```
+
+### Pre-commit setup
+```
+conda install -c conda-forge pre-commit
+pre-commit install
+```
