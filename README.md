@@ -45,7 +45,13 @@ python src/inference/test_query.py
 
 ### Run unit tests
 ```
-pytest test/
+pytest test/unit/
+```
+
+### Run integration tests
+This part currently requires data to work (see above).
+```
+pytest test/integration/
 ```
 
 ### Pre-commit setup

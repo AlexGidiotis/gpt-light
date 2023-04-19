@@ -15,7 +15,7 @@ $ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123
 $ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
 (If your cluster does not have Infiniband interconnect prepend NCCL_IB_DISABLE=1)
 """
-
+import sys
 import os
 import argparse
 import time
@@ -41,18 +41,19 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def init_job():
-    Configs = namedtuple('Configs', 'job_config data_config model_config context')
-    job_args = parse_args()
+def init_job(args):
+    Configs = namedtuple("Configs", "job_config data_config model_config context")
+    job_args = parse_args(args)
     job_config = override_config(job_args.config_file)
-    
+
     data_config = DataConfig(
         dataset=job_config.dataset,
         block_size=job_config.block_size,
         batch_size=job_config.batch_size,
         device=job_config.device,
-        device_type=job_config.device_type,)
-    
+        device_type=job_config.device_type,
+    )
+
     model_config = GPTConfig(
         n_layer=job_config.n_layer,
         n_head=job_config.n_head,
@@ -62,52 +63,66 @@ def init_job():
         vocab_size=None,
         dropout=job_config.dropout,
     )
-    
+
     # various inits, derived attributes, I/O setup
-    job_config.ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
+    job_config.ddp = int(os.environ.get("RANK", -1)) != -1  # is this a ddp run?
     if job_config.ddp:
         init_process_group(backend=job_config.backend)
-        ddp_rank = int(os.environ['RANK'])
-        ddp_local_rank = int(os.environ['LOCAL_RANK'])
-        job_config.device = f'cuda:{ddp_local_rank}'
+        ddp_rank = int(os.environ["RANK"])
+        ddp_local_rank = int(os.environ["LOCAL_RANK"])
+        job_config.device = f"cuda:{ddp_local_rank}"
         torch.cuda.set_device(job_config.device)
-        master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
-        seed_offset = ddp_rank # each process gets a different seed
+        master_process = (
+            ddp_rank == 0
+        )  # this process will do logging, checkpointing etc.
+        seed_offset = ddp_rank  # each process gets a different seed
     else:
         # if not ddp, we are running on a single gpu, and one process
         master_process = True
         seed_offset = 0
-        job_config.gradient_accumulation_steps *= 8 # simulate 8 gpus
+        job_config.gradient_accumulation_steps *= 8  # simulate 8 gpus
 
     if master_process:
         os.makedirs(job_config.out_dir, exist_ok=True)
     torch.manual_seed(1337 + seed_offset)
-    torch.backends.cuda.matmul.allow_tf32 = True # allow tf32 on matmul
-    torch.backends.cudnn.allow_tf32 = True # allow tf32 on cudnn
+    torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
+    torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
     # note: float16 data type will automatically use a GradScaler
-    ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[job_config.dtype]
-    ctx = nullcontext() if job_config.device_type == 'cpu' else torch.amp.autocast(device_type=job_config.device_type, dtype=ptdtype)
-    
+    ptdtype = {
+        "float32": torch.float32,
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+    }[job_config.dtype]
+    ctx = (
+        nullcontext()
+        if job_config.device_type == "cpu"
+        else torch.amp.autocast(device_type=job_config.device_type, dtype=ptdtype)
+    )
+
     return Configs(job_config, data_config, model_config, ctx)
 
 
-def parse_args():
+def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, help="", default=None)
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
-    configs = init_job()
+    configs = init_job(sys.argv[1:])
     config = asdict(configs.job_config)
     logging.debug(configs.job_config)
-    
+
     data_loader = DataLoader(configs.data_config)
     model_init = TrainModelInitialiser(configs)
     initialised = model_init.init_model(data_loader)
-    configs = model_init.configs  # some configs might have been changed when loading a model
+    configs = (
+        model_init.configs
+    )  # some configs might have been changed when loading a model
 
-    trainer = GPTTrainer(configs.job_config, configs.model_config, initialised.checkpoint)
+    trainer = GPTTrainer(
+        configs.job_config, configs.model_config, initialised.checkpoint
+    )
     trainer.init_trainer(initialised.model)
     trainer.training_loop(
         data_loader=data_loader,
@@ -120,6 +135,6 @@ def main():
     if configs.job_config.ddp:
         destroy_process_group()
 
-    
+
 if __name__ == "__main__":
     main()

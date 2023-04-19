@@ -1,0 +1,24 @@
+# train a miniature shakespeare model
+# good for debugging and playing on macbooks and such
+
+out_dir: 'out-testtinyshakespeare'
+init_from: 'gpt2'
+eval_interval: 1 # keep frequent because we'll overfit
+eval_iters: 1
+log_interval: 1 # don't print too too often
+
+# we expect to overfit on this small dataset, so only save when val improves
+always_save_checkpoint: True
+
+dataset: 'tinyshakespeare'
+batch_size: 2
+block_size: 64 # context of up to 256 previous characters
+
+learning_rate: 3.0e-5 # fine tuning with low lr
+max_iters: 1
+decay_lr: False
+
+device: 'cpu'  # run on cpu only
+device_type: 'cpu'  # run on cpu only
+dtype: 'float32'  # required to run in cpu mode
+compile_model: False # do not torch compile the model

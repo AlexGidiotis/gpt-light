@@ -12,7 +12,7 @@ def init_data(dataset, tmpdirname):
     dataset_dir = os.path.join(data_dir, dataset)
     os.mkdir(data_dir)
     os.mkdir(dataset_dir)
-    
+
     train_data = "This is a dataset created for training loaders"
     val_data = "This is a dataset created for validation loaders"
     data_encoder = DataEncoder()
@@ -21,7 +21,7 @@ def init_data(dataset, tmpdirname):
     val_ids = data_encoder.encode(val_data)
     data_encoder.save_data(val_ids, dir_path=dataset_dir, fname="val")
     data_encoder.save_metadata(dir_path=dataset_dir)
-        
+
 
 def test_load_metadata():
     with TemporaryDirectory() as tmpdirname:
@@ -54,6 +54,6 @@ def test_get_batch():
             device_type="cpu",
         )
         data_loader = DataLoader(data_config, path=tmpdirname)
-        X, Y = data_loader.get_batch('train')
+        X, Y = data_loader.get_batch("train")
         assert X.shape == (batch_size, block_size)
         assert Y.shape == (batch_size, block_size)
