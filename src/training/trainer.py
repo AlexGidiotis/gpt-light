@@ -82,15 +82,17 @@ class GPTTrainer:
         self.scaler = None
         self.optimizer = None
         self.unoptimized_model = None
+        self.model = None
 
     def init_trainer(self, model):
+        self.model = model
         # initialize a GradScaler. If enabled=False scaler is a no-op
         self.scaler = torch.cuda.amp.GradScaler(
             enabled=(self.job_config.dtype == "float16")
         )
 
         # optimizer
-        self.optimizer = model.configure_optimizers(
+        self.optimizer = self.model.configure_optimizers(
             self.job_config.weight_decay,
             self.job_config.learning_rate,
             (self.job_config.beta1, self.job_config.beta2),
@@ -102,12 +104,12 @@ class GPTTrainer:
         # compile the model
         if self.job_config.compile_model:
             logger.info("compiling the model... (takes a ~minute)")
-            self.unoptimized_model = model
-            model = torch.compile(model)  # requires PyTorch 2.0
+            self.unoptimized_model = self.model
+            self.model = torch.compile(self.model)  # requires PyTorch 2.0
 
         # wrap model into DDP container
         if self.job_config.ddp:
-            model = DDP(model, device_ids=[self.job_config.ddp_local_rank])
+            self.model = DDP(self.model, device_ids=[self.job_config.ddp_local_rank])
 
         # logging
         if self.job_config.wandb_log and self.job_config.master_process:
@@ -119,53 +121,54 @@ class GPTTrainer:
                 config=asdict(self.job_config),
             )
 
-    def training_loop(self, data_loader, model, context, iter_num, best_val_loss):
-        # helps estimate an arbitrarily accurate loss over either split using many batches
-        @torch.no_grad()
-        def estimate_loss():
-            out = {}
-            model.eval()
-            for split in ["train", "val"]:
-                losses = torch.zeros(self.job_config.eval_iters)
-                for k in range(self.job_config.eval_iters):
-                    X, Y = data_loader.get_batch(split)
-                    with context:
-                        logits, loss = model(X, Y)
-                    losses[k] = loss.item()
-                out[split] = losses.mean()
-            model.train()
-            return out
+    @torch.no_grad()
+    def estimate_loss(self, data_loader, context):
+        """helps estimate an arbitrarily accurate loss over either split using many batches"""
+        out = {}
+        self.model.eval()
+        for split in ["train", "val"]:
+            losses = torch.zeros(self.job_config.eval_iters)
+            for k in range(self.job_config.eval_iters):
+                X, Y = data_loader.get_batch(split)
+                with context:
+                    logits, loss = self.model(X, Y)
+                losses[k] = loss.item()
+            out[split] = losses.mean()
+        self.model.train()
+        return out
 
-        # learning rate decay scheduler (cosine with warmup)
-        def get_lr(it):
-            # 1) linear warmup for warmup_iters steps
-            if it < self.job_config.warmup_iters:
-                return self.job_config.learning_rate * it / self.job_config.warmup_iters
-            # 2) if it > lr_decay_iters, return min learning rate
-            if it > self.job_config.lr_decay_iters:
-                return min_lr
-            # 3) in between, use cosine decay down to min learning rate
-            decay_ratio = (it - self.job_config.warmup_iters) / (
-                self.job_config.lr_decay_iters - self.job_config.warmup_iters
-            )
-            assert 0 <= decay_ratio <= 1
-            coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
-            return self.job_config.min_lr + coeff * (
-                self.job_config.learning_rate - self.job_config.min_lr
-            )
+    def get_lr(self, it):
+        """learning rate decay scheduler (cosine with warmup)"""
+        # 1) linear warmup for warmup_iters steps
+        if it < self.job_config.warmup_iters:
+            return self.job_config.learning_rate * it / self.job_config.warmup_iters
+        # 2) if it > lr_decay_iters, return min learning rate
+        if it > self.job_config.lr_decay_iters:
+            return min_lr
+        # 3) in between, use cosine decay down to min learning rate
+        decay_ratio = (it - self.job_config.warmup_iters) / (
+            self.job_config.lr_decay_iters - self.job_config.warmup_iters
+        )
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
+        return self.job_config.min_lr + coeff * (
+            self.job_config.learning_rate - self.job_config.min_lr
+        )
 
+    def training_loop(self, data_loader, context, iter_num, best_val_loss):
+        TrainingLogs = namedtuple("TrainingLogs", "iter_num losses running_mfu")
         # training loop
         X, Y = data_loader.get_batch("train")  # fetch the very first batch
         t0 = time.time()
         local_iter_num = 0  # number of iterations in the lifetime of this process
         raw_model = (
-            model.module if self.job_config.ddp else model
+            self.model.module if self.job_config.ddp else self.model
         )  # unwrap DDP container if needed
         running_mfu = -1.0
         while True:
             # determine and set the learning rate for this iteration
             lr = (
-                get_lr(iter_num)
+                self.get_lr(iter_num)
                 if self.job_config.decay_lr
                 else self.job_config.learning_rate
             )
@@ -177,7 +180,7 @@ class GPTTrainer:
                 iter_num % self.job_config.eval_interval == 0
                 and self.job_config.master_process
             ):
-                losses = estimate_loss()
+                losses = self.estimate_loss(data_loader, context)
                 logger.info(
                     f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}"
                 )
@@ -220,11 +223,11 @@ class GPTTrainer:
                     # the official way to do this is with model.no_sync() context manager, but
                     # I really dislike that this bloats the code and forces us to repeat code
                     # looking at the source of that context manager, it just toggles this variable
-                    model.require_backward_grad_sync = (
+                    self.model.require_backward_grad_sync = (
                         micro_step == self.job_config.gradient_accumulation_steps - 1
                     )
                 with context:
-                    logits, loss = model(X, Y)
+                    logits, loss = self.model(X, Y)
                 # immediately async prefetch next batch while model is doing the forward pass on the GPU
                 X, Y = data_loader.get_batch("train")
                 # backward pass, with gradient scaling if training in fp16
@@ -233,7 +236,7 @@ class GPTTrainer:
             if self.job_config.grad_clip != 0.0:
                 self.scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(
-                    model.parameters(), self.job_config.grad_clip
+                    self.model.parameters(), self.job_config.grad_clip
                 )
             # step the optimizer and scaler if training in fp16
             self.scaler.step(self.optimizer)
@@ -268,6 +271,8 @@ class GPTTrainer:
             # termination conditions
             if iter_num > self.job_config.max_iters:
                 break
+
+        return TrainingLogs(iter_num, losses, running_mfu)
 
 
 class TrainModelInitialiser(ModelInitialiser):

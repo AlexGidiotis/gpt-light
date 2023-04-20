@@ -124,9 +124,8 @@ def main():
         configs.job_config, configs.model_config, initialised.checkpoint
     )
     trainer.init_trainer(initialised.model)
-    trainer.training_loop(
+    _ = trainer.training_loop(
         data_loader=data_loader,
-        model=initialised.model,
         context=configs.context,
         iter_num=initialised.iter_num,
         best_val_loss=initialised.best_val_loss,
