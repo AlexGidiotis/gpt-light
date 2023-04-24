@@ -106,3 +106,6 @@ It is generally advisable to enable pre-commit hooks when working with the repo.
 conda install -c conda-forge pre-commit
 pre-commit install
 ```
+
+## acknowledgements
+The GPT implementation in this repo is inspired by the [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master) repo by Andrej Karpathy. Our goal was to re-implement, re-structure and extend it with modules that make it easy to build different types of production applications on top of it.
