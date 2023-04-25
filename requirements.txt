@@ -7,3 +7,4 @@ pytest
 # backend server
 fastapi
 "uvicorn[standard]"
+watchfiles

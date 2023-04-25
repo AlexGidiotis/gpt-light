@@ -67,7 +67,7 @@ python src/inference/sample_main.py --config_file config/sample_shakespeare.yml
 
 A lightweigth server that serves a trained model in a REST API.
 ```
-uvicorn src.inference.service_main:app --reload
+uvicorn src.inference.service_main:app --reload --reload-include config/sample_gpt2.yml
 ```
 
 Once the server is running you can query the endpoint with a prompt (as a POST request). For more details on the query specifics have a look at the following test script.

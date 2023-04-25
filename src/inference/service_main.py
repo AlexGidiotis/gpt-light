@@ -22,12 +22,12 @@ class Prompt(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    models["gpt2_model"] = GPTServer(config_file="config/sample_shakespeare.yml")
+    models["gpt2_model"] = GPTServer(config_file="config/sample_gpt2.yml")
 
-    
+
 @app.get("/")
 def read_root():
-    return {"Hello": "From Light ChatGPT"}
+    return {"Hello": "From Light GPT"}
 
 
 @app.post("/lightchatgpt/")
