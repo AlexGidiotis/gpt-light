@@ -15,13 +15,16 @@ Feel free to fork this repo and use it as a template for developing your own GPT
 We want to eventualy include the RL-based fine-tuning of ChatGPT. In general this does not change the underlying knowledge model but makes the interaction with the model more human-like.
 
 ## Setup
+
+
+### Conda
 Setting up the code is fairly minimal and can be easily reproduced in local or cloud VM environments.\*
 
 1. Install Pytorch (with optional GPU support)
 2. Create Conda environment:
 ```
-conda create -n python38 python=3.8
-conda activate python38
+conda create -n python39 python=3.9
+conda activate python39
 ```
 3. Install dependencies:
 ```
@@ -29,6 +32,21 @@ conda install --file requirements.txt
 ```
 
 \* In the future we will try to provide a docker version of this setup.
+### Docker
+You could create your docker through the dockerfile provided under the docker directory and build your docker using the following command if you wish to use gpu:
+
+**Make sure you have the nvidia-container-toolkit**
+
+
+`docker build -t <name:tag> -f ./docker/Dockerfile .`
+
+and run your docker using the following command:
+`docker run --gpus all -it --name "container_name" -v /project/path/:/home/project/path <image_id> bash`
+
+The conda environment is still created in the docker under the path `/opt/gpt-light`. Feel free to change your env name. You can run your scripts by invoking `/opt/gpt-light/bin/python script.py`
+
+Remember to export the project's dir in PYTHONPATH
+`export PYTHONPATH=/gpt-light/:$PYTHONPATH`
 
 ## Running things
 ### Preparing tiny-shakespeare data
