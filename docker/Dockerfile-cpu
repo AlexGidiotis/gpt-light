@@ -1,0 +1,29 @@
+FROM ubuntu:20.04
+
+WORKDIR /home
+COPY ../requirements.txt .
+
+# Install some basic utilities
+RUN apt-get update && apt-get install -y \
+    wget \
+    ca-certificates \
+    bzip2 \
+    libx11-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && chmod +x Miniconda3-latest-Linux-x86_64.sh \
+    && ./Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
+    && rm Miniconda3-latest-Linux-x86_64.sh
+
+ENV PATH="/opt/conda/bin:${PATH}"
+
+# This saves ~200mb
+RUN conda create -y -p /opt/gpt-light-env python=3.9 && \
+    /opt/gpt-light-env/bin/python -m pip install --upgrade pip &&  /opt/gpt-light-env/bin/python -m pip install -r requirements.txt && \
+    rm -rf "/root/.cache/pip" && conda clean -aqy && CONDA_ROOT_DIR=$(conda info --root) && rm -rf "$CONDA_ROOT_DIR/pkgs" && \
+    find "${CONDA_ROOT_DIR}" -type d -name __pycache__ -exec rm -rf {} + && \
+    rm -rf /home/requirements.txt
+
+CMD ["/bin/bash"]
