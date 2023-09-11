@@ -37,11 +37,15 @@ You could create your docker through the dockerfile provided under the docker di
 
 **Make sure you have the nvidia-container-toolkit**
 
+**GPU**
+`docker build -t <name:tag> -f ./docker/Dockerfile-gpu .`
 
-`docker build -t <name:tag> -f ./docker/Dockerfile .`
-
-and run your docker using the following command:
+and run your docker using the following command if you use the gpu dockerfile:
 `docker run --gpus all -it --name "container_name" -v /project/path/:/home/project/path <image_id> bash`
+
+**CPU**
+
+`docker build -t <name:tag> -f ./docker/Dockerfile-cpu .`
 
 The conda environment is still created in the docker under the path `/opt/gpt-light`. Feel free to change your env name. You can run your scripts by invoking `/opt/gpt-light/bin/python script.py`
 
@@ -61,7 +65,8 @@ python src/data_io/fetch_shakespeare.py
 Training a very small GPT model from scratch on the tiny-shakespeare dataset created in the previous step. The resulting model won't be very generalizable as it is rather small and trained on a very small dataset but it can generate Shakespeare-like quotes.
 
 Change the configuration file and in order to train a model from scratch on your own data. At this point you can technically scale to very large model sizes according to your data size and resources.\*
-```
+
+```bash
 python src/training/train_main.py --config_file config/train_shakespeare_small.yml
 ```
 

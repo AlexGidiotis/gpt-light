@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8.0-base-ubuntu20.04
+FROM ubuntu:20.04
 
 WORKDIR /home
 COPY ../requirements.txt .
